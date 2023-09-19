@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import { useConnect } from 'wagmi';
 import { Alert } from '@mui/lab';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { FarmFromMode, FarmToMode } from '@beanstalk/sdk';
 import { IconSize } from '~/components/App/muiTheme';
 import IconWrapper from '~/components/Common/IconWrapper';
 import {
@@ -20,12 +21,11 @@ import FarmModeField from '~/components/Common/Form/FarmModeField';
 import Token, { ERC20Token, NativeToken } from '~/classes/Token';
 import { Beanstalk } from '~/generated/index';
 import { ZERO_BN } from '~/constants';
-import { BEAN, CRV3, DAI, USDC, USDT, WETH } from '~/constants/tokens';
+import { BEAN, BEAN_CRV3_LP, BEAN_ETH_WELL_LP, CRV3, DAI, USDC, USDT, WETH } from '~/constants/tokens';
 import { useBeanstalkContract } from '~/hooks/ledger/useContract';
 import useFarmerBalances from '~/hooks/farmer/useFarmerBalances';
 import useTokenMap from '~/hooks/chain/useTokenMap';
 import { useSigner } from '~/hooks/ledger/useSigner';
-import { FarmFromMode, FarmToMode } from '~/lib/Beanstalk/Farm';
 import useGetChainToken from '~/hooks/chain/useGetChainToken';
 import useAccount from '~/hooks/ledger/useAccount';
 import { toStringBaseUnitBN } from '~/util';
@@ -52,6 +52,22 @@ type TransferFormValues = {
   destination: string;
   approving: boolean;
 };
+
+const Warning: FC<{ color?: 'warning' | 'error' }> = ({
+  children,
+  color = 'warning',
+}) => (
+  <Alert
+    color={color}
+    icon={
+      <IconWrapper boxSize={IconSize.medium}>
+        <WarningAmberIcon sx={{ fontSize: IconSize.small }} />
+      </IconWrapper>
+    }
+  >
+    {children}
+  </Alert>
+);
 
 const TransferForm: FC<
   FormikProps<TransferFormValues> & {
@@ -220,10 +236,11 @@ const TransferForm: FC<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleSetBalanceFrom, account, toMode]);
 
-  /// Checks
+  /// Approval Checks
   const shouldApprove =
     fromMode === FarmFromMode.EXTERNAL ||
-    fromMode === FarmFromMode.INTERNAL_EXTERNAL;
+    (fromMode === FarmFromMode.INTERNAL_EXTERNAL &&
+      amount?.gt(balances[tokenIn.address]?.internal));
 
   const amountsCheck = amount?.gt(0);
   const enoughBalanceCheck = amount
@@ -248,19 +265,6 @@ const TransferForm: FC<
     addressCheck &&
     modeCheck &&
     (sameAddressCheck ? !internalExternalCheck : true);
-
-  const Warning: FC<{}> = ({ children }) => (
-    <Alert
-      color="warning"
-      icon={
-        <IconWrapper boxSize={IconSize.medium}>
-          <WarningAmberIcon sx={{ fontSize: IconSize.small }} />
-        </IconWrapper>
-      }
-    >
-      {children}
-    </Alert>
-  );
 
   return (
     <Form autoComplete="off" onSubmit={handleSubmitWrapper}>
@@ -353,6 +357,13 @@ const TransferForm: FC<
             {`Transfer amount higher than your ${copy.MODES[values.fromMode]}.`}
           </Warning>
         ) : null}
+        {toMode === FarmToMode.INTERNAL && (
+          <Warning color="error">
+            If you send assets to the Farm Balance of contracts, centralized
+            exchanges, etc. that don&apos;t support Farm Balances, the assets
+            will be lost.
+          </Warning>
+        )}
         <SmartSubmitButton
           type="submit"
           variant="contained"
@@ -378,7 +389,7 @@ const TransferForm: FC<
 
 // ---------------------------------------------------
 
-const SUPPORTED_TOKENS = [BEAN, WETH, CRV3, DAI, USDC, USDT];
+const SUPPORTED_TOKENS = [BEAN, WETH, BEAN_ETH_WELL_LP, BEAN_CRV3_LP, CRV3, DAI, USDC, USDT];
 
 const Transfer: FC<{}> = () => {
   /// Ledger

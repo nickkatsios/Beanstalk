@@ -7,6 +7,7 @@ const { BEAN, WETH, UNRIPE_BEAN, UNRIPE_LP } = require('./utils/constants')
 const { ConvertEncoder } = require('./utils/encoder.js')
 const { to6, to18, toBean, toStalk } = require('./utils/helpers.js')
 const { takeSnapshot, revertToSnapshot } = require("./utils/snapshot");
+const { setEthUsdPrice, setEthUsdcPrice, setEthUsdtPrice } = require('../scripts/usdOracle.js');
 const ZERO_BYTES = ethers.utils.formatBytes32String('0x0')
 let user, user2, owner;
 let userAddress, ownerAddress, user2Address;
@@ -30,11 +31,23 @@ describe('Well Convert', function () {
     await this.wellToken.connect(owner).approve(this.beanstalk.address, ethers.constants.MaxUint256)
     await this.bean.connect(owner).approve(this.beanstalk.address, ethers.constants.MaxUint256)
 
+
+    await setEthUsdPrice('999.998018')
+    await setEthUsdcPrice('1000')
+    await setEthUsdtPrice('1000')
+
     await setReserves(
       owner,
       this.well,
       [to6('1000000'), to18('1000')]
     );
+
+    await setReserves(
+      owner,
+      this.well,
+      [to6('1000000'), to18('1000')]
+    );
+
     await whitelistWell(this.well.address, '10000', to6('4'))
   });
 
@@ -131,7 +144,7 @@ describe('Well Convert', function () {
         expect(toAmount).to.be.equal('3338505354221892343955')
       })
 
-      it('depost and convert below max', async function () {
+      it('deposit and convert below max', async function () {
         const convertData = ConvertEncoder.convertBeansToWellLP(to6('100000'), '1338505354221892343955', this.well.address)
         await this.bean.connect(owner).approve(this.beanstalk.address, to6('100000'))
         await this.beanstalk.connect(owner).deposit(BEAN, to6('100000'), 0)
@@ -143,6 +156,16 @@ describe('Well Convert', function () {
         deposit = await this.beanstalk.getDeposit(owner.address, this.well.address, '0')
         expect(deposit[0]).to.be.equal('1715728752538099023967')
       })
+
+      it('reverts when USD oracle is broken', async function () {
+        await setEthUsdPrice('0')
+        const convertData = ConvertEncoder.convertBeansToWellLP(to6('100000'), '1338505354221892343955', this.well.address)
+        await expect(this.convert.connect(owner).callStatic.convertInternalE(
+          this.bean.address,
+          to6('100000'),
+          convertData
+        )).to.be.revertedWith('Convert: USD Oracle failed')
+      });
     });
 
     describe('p <= 1', async function () {
@@ -175,7 +198,7 @@ describe('Well Convert', function () {
         expect(fromToken).to.be.equal(this.well.address)
         expect(fromAmount).to.be.equal(to18('2000'))
         expect(toToken).to.be.equal(BEAN)
-        expect(toAmount).to.be.equal('134564064606')
+        expect(toAmount).to.be.equal('134564064605')
       })
 
       it('convert equal to max', async function () {
@@ -206,7 +229,7 @@ describe('Well Convert', function () {
         expect(toAmount).to.be.equal(to6('200000'))
       })
 
-      it('depost and convert below max', async function () {
+      it('deposit and convert below max', async function () {
         const convertData = ConvertEncoder.convertWellLPToBeans(to18('2000'), to6('100000'), this.well.address)
         await this.beanstalk.connect(owner).deposit(this.well.address, to18('2000'), 0)
         await this.convert.connect(owner).convert(
@@ -215,8 +238,18 @@ describe('Well Convert', function () {
           [to18('2000')]
         )
         deposit = await this.beanstalk.getDeposit(owner.address, BEAN, '0')
-        expect(deposit[0]).to.be.equal('134564064606')
+        expect(deposit[0]).to.be.equal('134564064605')
       })
+
+      it('reverts when USD oracle is broken', async function () {
+        await setEthUsdPrice('0')
+        const convertData = ConvertEncoder.convertWellLPToBeans('3018239549693752550560', to6('200000'), this.well.address)
+        await expect(this.convert.connect(owner).callStatic.convertInternalE(
+          this.well.address,
+          '3018239549693752550560',
+          convertData
+        )).to.be.revertedWith('Convert: USD Oracle failed')
+      });
     });
 
     describe('p > 1', async function () {

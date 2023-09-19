@@ -13,12 +13,12 @@ import useSeason from '~/hooks/beanstalk/useSeason';
 import { FC } from '~/types';
 
 const getValue = (season: SeasonalVolumeQuery['seasons'][number]) =>
-  parseFloat(season.hourlyVolumeUSD);
+  parseFloat(season.deltaVolumeUSD);
 const formatValue = (value: number) =>
   `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const statProps = {
   title: 'Volume',
-  titleTooltip: 'The total volume in the BEAN:3CRV pool in every Season.',
+  titleTooltip: 'The total volume in the BEAN:3CRV and BEAN:ETH pools in every Season.',
   gap: 0.25,
 };
 const queryConfig = { context: { subgraph: 'bean' } };

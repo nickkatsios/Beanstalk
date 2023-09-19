@@ -6,7 +6,7 @@ pragma experimental ABIEncoderV2;
 import {SafeMath} from "@openzeppelin/contracts/math/SafeMath.sol";
 import {AppStorage, LibAppStorage, Account} from "../LibAppStorage.sol";
 import {LibSafeMath128} from "../LibSafeMath128.sol";
-import {C} from "~/C.sol";
+import {C} from "contracts/C.sol";
 
 /**
  * @title LibUnripeSilo
@@ -54,6 +54,7 @@ library LibUnripeSilo {
     uint256 private constant AMOUNT_TO_BDV_BEAN_3CRV = 992035;
     uint256 private constant AMOUNT_TO_BDV_BEAN_LUSD = 983108;
 
+<<<<<<< HEAD
     /**
      * @dev Deletes the legacy Bean storage reference for a given `account` and `id`.
      */
@@ -63,6 +64,36 @@ library LibUnripeSilo {
     ) internal {
         AppStorage storage s = LibAppStorage.diamondStorage();
         delete s.a[account].bean.deposits[id];
+=======
+    //////////////////////// Unripe BEAN ////////////////////////
+
+    /*
+     * Unripe Bean Deposits stored in the Silo V1 Bean storage reference have
+     * not yet been Enrooted, as Enrooting moves the Deposit into the Unripe Bean
+     * Silo V2 storage reference (See {SiloFacet-enrootDeposit(s)}).
+     * 
+     * Thus, the BDV of Unripe Bean Deposits stored in the Silo V1 Bean storage 
+     * is equal to the amount deposited times the initial % recapitalized when 
+     * Beanstalk was Replanted.
+     *
+     * As Beanstalk continues to recapitalize, users can call 
+     * {SiloFacet-enrootDeposit(s)} to update the BDV of their Unripe Deposits. 
+     */
+
+    /**
+     * @dev Removes all Unripe Beans deposited stored in `account` legacy 
+     * Silo V1 storage and returns the BDV.
+     *
+     * Since Deposited Beans have a BDV of 1, 1 Bean in Silo V1 storage equals
+     * 1 Unripe Bean. 
+     */
+    function removeLegacyUnripeBeanDeposit(
+        address account,
+        uint32 season
+    ) internal {
+        AppStorage storage s = LibAppStorage.diamondStorage();
+        delete s.a[account].bean.deposits[season];
+>>>>>>> 05f7b18b21d963ff0f95aa0f4dd02a5520ca7dcf
     }
 
     /**
@@ -73,8 +104,15 @@ library LibUnripeSilo {
     }
 
     /**
+<<<<<<< HEAD
      * @dev Returns the whole Unripe Bean Deposit for a given `account` and `season`.
      * Includes non-legacy balance.
+=======
+     * @dev Calculate the `amount` and `bdv` of an Unripe Bean deposit. Sums
+     * across the amounts stored in Silo V1 and Silo V2 storage.
+     * 
+     * This is Unripe Bean equivalent of {LibTokenSilo-tokenDeposit}.
+>>>>>>> 05f7b18b21d963ff0f95aa0f4dd02a5520ca7dcf
      */
     function unripeBeanDeposit(address account, uint32 season)
         internal
@@ -99,6 +137,7 @@ library LibUnripeSilo {
             .add(legacyAmount.mul(C.initialRecap()).div(1e18));
         
     }
+<<<<<<< HEAD
 
     /**
      * @dev Deletes all legacy LP storage references for a given `account` and `id`.
@@ -112,9 +151,42 @@ library LibUnripeSilo {
         delete s.a[account].lp.deposits[id];
         delete s.a[account].deposits[C.unripeLPPool1()][id];
         delete s.a[account].deposits[C.unripeLPPool2()][id];
-    }
+=======
+    //////////////////////// Unripe LP ////////////////////////
+
+    /*
+     * Unripe LP Deposits stored in the pre-exploit Bean:LUSD and BEAN:3CRV Silo
+     * V2 and the BEAN:ETH legacy Silo V1 storage have not been Enrooted, as
+     * Enrooting moves the Deposit into the Unripe BEAN:3CRV Silo V2 storage 
+     * reference (See {SiloFacet.enrootDeposit(s)}).
+     * 
+     * Thus, the BDV of Unripe BEAN:3CRV Deposits stored in the Silo V1 Bean
+     * storage is equal to the BDV of the amount of token times initial
+     * % recapitalized when Beanstalk was Replanted.
+     */
 
     /**
+     * @dev Removes all Unripe BEAN:3CRV stored in _any_ of the
+     * pre-exploit LP Token Silo storage mappings and returns the BDV. 
+     *
+     * 
+     * 1. Silo V1 format, pre-exploit BEAN:ETH LP token
+     * 2. Silo V2 format, pre-exploit BEAN:3CRV LP token
+     * 3. Silo V2 format, pre-exploit BEAN:LUSD LP token
+     */
+    function removeLegacyUnripeLPDeposit(
+        address account,
+        uint32 season
+    ) internal {
+        AppStorage storage s = LibAppStorage.diamondStorage();
+        delete s.a[account].lp.depositSeeds[season];
+        delete s.a[account].lp.deposits[season];
+        delete s.a[account].legacyDeposits[C.unripeLPPool1()][season];
+        delete s.a[account].legacyDeposits[C.unripeLPPool2()][season];
+>>>>>>> 05f7b18b21d963ff0f95aa0f4dd02a5520ca7dcf
+    }
+
+    /**1000000000000000017348
      * @dev Returns true if the provided address is the Unripe LP token address.
      */
     function isUnripeLP(address token) internal pure returns (bool b) {
@@ -122,8 +194,14 @@ library LibUnripeSilo {
     }
 
     /**
+<<<<<<< HEAD
      * @dev Returns the whole Unripe LP Deposit for a given `account` and `season`.
      * Includes non-legacy balance.
+=======
+     * @dev Calculate the `amount` and `bdv` of a given Unripe BEAN:3CRV deposit.
+     *
+     * This is Unripe LP equivalent of {LibTokenSilo-tokenDeposit}.
+>>>>>>> 05f7b18b21d963ff0f95aa0f4dd02a5520ca7dcf
      */
     function unripeLPDeposit(address account, uint32 season)
         internal

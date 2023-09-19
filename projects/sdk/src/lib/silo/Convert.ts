@@ -1,10 +1,10 @@
+import { TokenValue } from "@beanstalk/sdk-core";
 import { ContractTransaction } from "ethers";
 import { Token } from "src/classes/Token";
-import { TokenValue } from "src/classes/TokenValue";
 import { BeanstalkSDK } from "../BeanstalkSDK";
 import { ConvertEncoder } from "./ConvertEncoder";
-import { DepositCrate } from "./types";
-import { pickCrates, sortCratesByBDVRatio, sortCratesBySeason } from "./utils";
+import { Deposit } from "./types";
+import { pickCrates, sortCratesByBDVRatio, sortCratesByStem } from "./utils";
 
 export type ConvertDetails = {
   amount: TokenValue;
@@ -12,13 +12,14 @@ export type ConvertDetails = {
   stalk: TokenValue;
   seeds: TokenValue;
   actions: [];
-  crates: DepositCrate<TokenValue>[];
+  crates: Deposit[];
 };
 
 export class Convert {
   static sdk: BeanstalkSDK;
   Bean: Token;
   BeanCrv3: Token;
+  BeanEth: Token;
   urBean: Token;
   urBeanCrv3: Token;
   paths: Map<Token, Token>;
@@ -26,13 +27,16 @@ export class Convert {
   constructor(sdk: BeanstalkSDK) {
     Convert.sdk = sdk;
     this.Bean = Convert.sdk.tokens.BEAN;
-    this.BeanCrv3 = Convert.sdk.tokens.BEAN_CRV3_LP;
+    this.BeanCrv3 = Convert.sdk.tokens.BEAN_CRV3_LP; 
+    this.BeanEth = Convert.sdk.tokens.BEAN_ETH_WELL_LP;
     this.urBean = Convert.sdk.tokens.UNRIPE_BEAN;
     this.urBeanCrv3 = Convert.sdk.tokens.UNRIPE_BEAN_CRV3;
 
     this.paths = new Map<Token, Token>();
     this.paths.set(this.Bean, this.BeanCrv3);
     this.paths.set(this.BeanCrv3, this.Bean);
+    this.paths.set(this.Bean, this.BeanEth);
+    this.paths.set(this.BeanEth, this.Bean);
     this.paths.set(this.urBean, this.urBeanCrv3);
     this.paths.set(this.urBeanCrv3, this.urBean);
   }
@@ -47,7 +51,7 @@ export class Convert {
     const encoding = this.calculateEncoding(fromToken, toToken, fromAmount, minAmountOut);
 
     // format parameters
-    const crates = conversion.crates.map((crate) => crate.season.toString());
+    const crates = conversion.crates.map((crate) => crate.stem.toString());
     const amounts = conversion.crates.map((crate) => crate.amount.toBlockchain());
 
     // execute
@@ -63,16 +67,16 @@ export class Convert {
     Convert.sdk.debug("silo.convertEstimate()", { fromToken, toToken, fromAmount });
     await this.validateTokens(fromToken, toToken);
 
-    const { deposited } = await Convert.sdk.silo.getBalance(fromToken);
-    Convert.sdk.debug("silo.convertEstimate(): deposited balance", { deposited });
+    const balance = await Convert.sdk.silo.getBalance(fromToken);
+    Convert.sdk.debug("silo.convertEstimate(): deposited balance", { balance });
 
-    if (deposited.amount.lt(fromAmount)) {
+    if (balance.amount.lt(fromAmount)) {
       throw new Error("Insufficient balance");
     }
 
     const currentSeason = await Convert.sdk.sun.getSeason();
 
-    const conversion = this.calculateConvert(fromToken, toToken, fromAmount, deposited.crates, currentSeason);
+    const conversion = this.calculateConvert(fromToken, toToken, fromAmount, balance.deposits, currentSeason);
 
     const amountOutBN = await Convert.sdk.contracts.beanstalk.getAmountOut(
       fromToken.address,
@@ -85,24 +89,18 @@ export class Convert {
     return { minAmountOut, conversion };
   }
 
-  calculateConvert(
-    fromToken: Token,
-    toToken: Token,
-    fromAmount: TokenValue,
-    crates: DepositCrate[],
-    currentSeason: number
-  ): ConvertDetails {
-    if (crates.length === 0) throw new Error("No crates to withdraw from");
+  calculateConvert(fromToken: Token, toToken: Token, fromAmount: TokenValue, deposits: Deposit[], currentSeason: number): ConvertDetails {
+    if (deposits.length === 0) throw new Error("No crates to withdraw from");
     const sortedCrates = toToken.isLP
       ? /// BEAN -> LP: oldest crates are best. Grown stalk is equivalent
         /// on both sides of the convert, but having more seeds in older crates
         /// allows you to accrue stalk faster after convert.
         /// Note that during this convert, BDV is approx. equal after the convert.
-        sortCratesBySeason<DepositCrate>(crates, "asc")
+        sortCratesByStem(deposits, "asc")
       : /// LP -> BEAN: use the crates with the lowest [BDV/Amount] ratio first.
         /// Since LP deposits can have varying BDV, the best option for the Farmer
         /// is to increase the BDV of their existing lowest-BDV crates.
-        sortCratesByBDVRatio<DepositCrate>(crates, "asc");
+        sortCratesByBDVRatio(deposits, "asc");
 
     const pickedCrates = pickCrates(sortedCrates, fromAmount, fromToken, currentSeason);
 
@@ -119,30 +117,42 @@ export class Convert {
   calculateEncoding(fromToken: Token, toToken: Token, amountIn: TokenValue, minAmountOut: TokenValue) {
     let encoding;
 
-    if (fromToken === this.urBean && toToken === this.urBeanCrv3) {
+    if (fromToken.address === this.urBean.address && toToken.address === this.urBeanCrv3.address) {
       encoding = ConvertEncoder.unripeBeansToLP(
         amountIn.toBlockchain(), // amountBeans
         minAmountOut.toBlockchain() // minLP
       );
-    } else if (fromToken === this.urBeanCrv3 && toToken === this.urBean) {
+    } else if (fromToken.address === this.urBeanCrv3.address && toToken.address === this.urBean.address) {
       encoding = ConvertEncoder.unripeLPToBeans(
         amountIn.toBlockchain(), // amountLP
         minAmountOut.toBlockchain() // minBeans
       );
-    } else if (fromToken === this.Bean && toToken === this.BeanCrv3) {
+    } else if (fromToken.address === this.Bean.address && toToken.address === this.BeanCrv3.address) {
       encoding = ConvertEncoder.beansToCurveLP(
         amountIn.toBlockchain(), // amountBeans
         minAmountOut.toBlockchain(), // minLP
         toToken.address // output token address = pool address
       );
-    } else if (fromToken === this.BeanCrv3 && toToken === this.Bean) {
+    } else if (fromToken.address === this.BeanCrv3.address && toToken.address === this.Bean.address) {
       encoding = ConvertEncoder.curveLPToBeans(
         amountIn.toBlockchain(), // amountLP
         minAmountOut.toBlockchain(), // minBeans
         fromToken.address // output token address = pool address
       );
+    } else if (fromToken.address === this.Bean.address && toToken.address === this.BeanEth.address) {
+      encoding = ConvertEncoder.beansToWellLP(
+        amountIn.toBlockchain(), // amountBeans
+        minAmountOut.toBlockchain(), // minLP
+        toToken.address // output token address = pool address
+      );
+    } else if (fromToken.address === this.BeanEth.address && toToken.address === this.Bean.address) {
+      encoding = ConvertEncoder.wellLPToBeans(
+        amountIn.toBlockchain(), // amountLP
+        minAmountOut.toBlockchain(), // minBeans
+        fromToken.address // output token address = pool address
+      );
     } else {
-      throw new Error("Unknown conversion pathway");
+      throw new Error("SDK: Unknown conversion pathway");
     }
 
     return encoding;
@@ -166,10 +176,9 @@ export class Convert {
     }
 
     const deltaB = await Convert.sdk.bean.getDeltaB();
-    
 
     if (deltaB.gte(TokenValue.ZERO)) {
-      if (fromToken.equals(this.BeanCrv3) || fromToken.equals(this.urBeanCrv3)) {
+      if (fromToken.equals(this.BeanCrv3) || fromToken.equals(this.urBeanCrv3) || fromToken.equals(this.BeanEth)) {
         throw new Error("Cannot convert this token when deltaB is >= 0");
       }
     } else if (deltaB.lt(TokenValue.ZERO)) {

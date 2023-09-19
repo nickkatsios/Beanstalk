@@ -1,7 +1,7 @@
 import React from 'react';
 import BigNumber from 'bignumber.js';
+import { FarmFromMode, FarmToMode } from '@beanstalk/sdk';
 import Token from '~/classes/Token';
-import { FarmFromMode, FarmToMode } from '~/lib/Beanstalk/Farm';
 import { displayFullBN, displayTokenAmount } from '~/util/Tokens';
 import copy from '~/constants/copy';
 import { BEAN, PODS, SPROUTS } from '../constants/tokens';
@@ -30,6 +30,7 @@ export enum ActionType {
   HARVEST,
   RECEIVE_BEANS,
   TRANSFER_PODS,
+  TRANSFER_MULTIPLE_PLOTS,
 
   /// MARKET
   CREATE_ORDER,
@@ -110,6 +111,7 @@ export type SiloWithdrawAction = SiloAction & {
 
 export type SiloTransitAction = SiloAction & {
   type: ActionType.IN_TRANSIT;
+  destination: FarmToMode;
   withdrawSeasons: BigNumber;
 };
 
@@ -186,6 +188,13 @@ export type TransferPodsAction = {
   placeInLine: BigNumber;
 };
 
+export type TransferMultiplePlotsAction = {
+  type: ActionType.TRANSFER_MULTIPLE_PLOTS;
+  amount: BigNumber;
+  address: string;
+  plots: number;
+};
+
 /// ////////////////////////////// MARKET /////////////////////////////////
 
 export type CreateOrderAction = {
@@ -252,6 +261,7 @@ export type Action =
   | ReceiveBeansAction
   | BuyBeansAction
   | TransferPodsAction
+  | TransferMultiplePlotsAction
   /// MARKET
   | CreateOrderAction
   | BuyPodsAction
@@ -308,16 +318,13 @@ export const parseActionMessage = (a: Action) => {
         a.token
       )} from the Silo.`;
     case ActionType.IN_TRANSIT:
-      return `Receive ${displayTokenAmount(a.amount.abs(), a.token, {
-        modifier: 'Claimable',
-        showName: true,
-      })} at the start of the next Season.`;
+      return `Receive ${displayTokenAmount(a.amount.abs(), a.token)} to your ${copy.MODES[a.destination]}.`;
     case ActionType.UPDATE_SILO_REWARDS: // FIXME: don't like "update" here
       return `${a.stalk.lt(0) ? 'Burn' : 'Receive'} ${displayFullBN(
         a.stalk.abs(),
         2
       )} Stalk and ${
-        a.seeds.lt(0) ? (a.stalk.gt(0) ? 'burn ' : '') : ''
+        a.seeds.lt(0) ? (a.stalk.gte(0) ? 'burn ' : '') : ''
       }${displayFullBN(a.seeds.abs(), 2)} Seeds.`;
     case ActionType.CLAIM_WITHDRAWAL:
       return `Claim ${displayFullBN(a.amount, 2)} ${a.token.name}.`;
@@ -374,6 +381,10 @@ export const parseActionMessage = (a: Action) => {
       return `Transfer ${displayTokenAmount(a.amount, PODS)} at ${displayBN(
         a.placeInLine
       )} in Line to ${a.address}.`;
+    case ActionType.TRANSFER_MULTIPLE_PLOTS:
+      return `Transfer ${displayTokenAmount(a.amount, PODS)} in ${
+        a.plots
+      } Plots to ${a.address}.`;
 
     /// BARN
     case ActionType.RINSE:

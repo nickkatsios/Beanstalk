@@ -108,6 +108,7 @@ async function main(scriptName, verbose = true, mock = false, reset = true) {
     migrationFacet,
     approvalFacet,
     convertFacet,
+    convertGettersFacet,
     enrootFacet,
     farmFacet,
     fieldFacet,
@@ -132,6 +133,7 @@ async function main(scriptName, verbose = true, mock = false, reset = true) {
       'MigrationFacet',
       'ApprovalFacet',
       'MockConvertFacet',
+      'ConvertGettersFacet',
       'EnrootFacet',
       'FarmFacet',
       'MockFieldFacet',
@@ -157,6 +159,7 @@ async function main(scriptName, verbose = true, mock = false, reset = true) {
       'MigrationFacet',
       'ApprovalFacet',
       'ConvertFacet',
+      'ConvertGettersFacet',
       'EnrootFacet',
       'FarmFacet',
       'FieldFacet',
@@ -185,13 +188,13 @@ async function main(scriptName, verbose = true, mock = false, reset = true) {
     if (reset) {
       await impersonateCurve()
       await impersonateWeth()
+      await impersonateEthUsdcUniswap()
+      await impersonateEthUsdtUniswap()
     }
     await impersonateCurveMetapool()
     await impersonateUnripe()
     await impersonateFertilizer()
     await impersonateBlockBasefee();
-    await impersonateEthUsdcUniswap()
-    await impersonateEthUsdtUniswap()
     await impersonateEthUsdChainlinkAggregator()
   }
 
@@ -204,6 +207,7 @@ async function main(scriptName, verbose = true, mock = false, reset = true) {
       ['MigrationFacet', migrationFacet],
       ['ApprovalFacet', approvalFacet],
       ['ConvertFacet', convertFacet],
+      ['ConvertGettersFacet', convertGettersFacet],
       ['EnrootFacet', enrootFacet],
       ['FarmFacet', farmFacet],
       ['FieldFacet', fieldFacet],
@@ -250,6 +254,7 @@ async function main(scriptName, verbose = true, mock = false, reset = true) {
     diamondLoupeFacet: diamondLoupeFacet,
     bdvFacet,
     convertFacet,
+    convertGettersFacet,
     enrootFacet,
     migrationFacet,
     approvalFacet,

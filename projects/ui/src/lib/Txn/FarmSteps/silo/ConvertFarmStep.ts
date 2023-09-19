@@ -1,36 +1,31 @@
 import {
   BeanstalkSDK,
+  Deposit,
   StepGenerator,
   Token,
-  TokenSiloBalance,
   TokenValue,
 } from '@beanstalk/sdk';
 import { ethers } from 'ethers';
 import { FarmStep, PlantAndDoX } from '~/lib/Txn/Interface';
 
 export class ConvertFarmStep extends FarmStep {
-  private _tokenOut: Token;
-
-  constructor(
+    constructor(
     _sdk: BeanstalkSDK,
     private _tokenIn: Token,
+    private _tokenOut: Token,
     private _season: number,
-    private _crates: TokenSiloBalance['deposited']['crates']
+    private _deposits: Deposit[]
   ) {
     super(_sdk);
     this._sdk = _sdk;
-    this._crates = _crates;
+    this._deposits = _deposits;
 
-    const path = ConvertFarmStep.getConversionPath(this._sdk, this._tokenIn);
-
-    this._tokenIn = path.tokenIn;
-    this._tokenOut = path.tokenOut;
   }
 
   /// this logic exists in the SDK but won't work b/c we need to add plant
   static async _handleConversion(
     sdk: BeanstalkSDK,
-    _crates: TokenSiloBalance['deposited']['crates'],
+    _deposits: Deposit[],
     _tokenIn: Token,
     _tokenOut: Token,
     _amountIn: TokenValue,
@@ -40,12 +35,12 @@ export class ConvertFarmStep extends FarmStep {
   ) {
     const { beanstalk } = sdk.contracts;
 
-    const crates = [..._crates];
+    const deposits = [..._deposits];
 
     let amountIn = _amountIn;
 
     if (plant?.canPrependPlant(_tokenIn)) {
-      crates.push(plant.makePlantCrate());
+      deposits.push(plant.makePlantCrate());
       amountIn = amountIn.add(plant.getAmount());
     }
 
@@ -55,7 +50,7 @@ export class ConvertFarmStep extends FarmStep {
       _tokenIn,
       _tokenOut,
       amountIn,
-      crates,
+      deposits,
       _season
     );
     console.debug('[ConvertFarmStep][conversion]: ', conversion);
@@ -78,7 +73,7 @@ export class ConvertFarmStep extends FarmStep {
           amountIn,
           minAmountOut
         ),
-        conversion.crates.map((c) => c.season.toString()),
+        conversion.crates.map((c) => c.stem.toString()),
         conversion.crates.map((c) => c.amount.abs().toBlockchain()),
       ]);
 
@@ -96,7 +91,7 @@ export class ConvertFarmStep extends FarmStep {
   ) {
     return ConvertFarmStep._handleConversion(
       this._sdk,
-      this._crates,
+      this._deposits,
       this._tokenIn,
       this._tokenOut,
       _amountIn,
@@ -144,20 +139,30 @@ export class ConvertFarmStep extends FarmStep {
   }
 
   // static methods
+  // FIXME: This could probably be simplified or removed entirely
   static getConversionPath(sdk: BeanstalkSDK, tokenIn: Token) {
     const siloConvert = sdk.silo.siloConvert;
     const pathMatrix = [
       [siloConvert.Bean, siloConvert.BeanCrv3],
+      [siloConvert.Bean, siloConvert.BeanEth],
+      [siloConvert.Bean, siloConvert.BeanCrv3, siloConvert.BeanEth],
       [siloConvert.urBean, siloConvert.urBeanCrv3],
     ];
 
     /// b/c siloConvert uses it's own token instances
     const sdkTokenPathMatrix = [
       [sdk.tokens.BEAN, sdk.tokens.BEAN_CRV3_LP],
+      [sdk.tokens.BEAN, sdk.tokens.BEAN_ETH_WELL_LP],
+      [sdk.tokens.BEAN, sdk.tokens.BEAN_CRV3_LP, sdk.tokens.BEAN_ETH_WELL_LP],
       [sdk.tokens.UNRIPE_BEAN, sdk.tokens.UNRIPE_BEAN_CRV3],
     ];
 
-    const index = tokenIn.isUnripe ? 1 : 0;
+    const index = tokenIn === sdk.tokens.BEAN_CRV3_LP ? 0
+      : tokenIn === sdk.tokens.BEAN_ETH_WELL_LP ? 1
+      : tokenIn === sdk.tokens.BEAN ? 2
+      : 3
+    ;
+
     const path = pathMatrix[index];
 
     const tokenInIndex = path.findIndex((t) => t.equals(tokenIn));

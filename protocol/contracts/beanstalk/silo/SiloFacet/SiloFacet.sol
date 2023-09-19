@@ -2,17 +2,16 @@
  * SPDX-License-Identifier: MIT
  */
 
-pragma solidity ^0.7.6;
-pragma experimental ABIEncoderV2;
+pragma solidity =0.7.6;
+pragma abicoder v2;
 
 import "./TokenSilo.sol";
-import "~/beanstalk/ReentrancyGuard.sol";
-import "~/libraries/Token/LibTransfer.sol";
-import "~/libraries/Silo/LibSiloPermit.sol";
+import "contracts/libraries/Token/LibTransfer.sol";
+import "contracts/libraries/Silo/LibSiloPermit.sol";
 
 /**
  * @title SiloFacet
- * @author Publius, Brean
+ * @author Publius, Brean, Pizzaman1337
  * @notice SiloFacet is the entry point for all Silo functionality.
  * 
  * SiloFacet           public functions for modifying an account's Silo.
@@ -55,7 +54,7 @@ contract SiloFacet is TokenSilo {
         payable 
         nonReentrant 
         mowSender(token) 
-        returns (uint256 amount, uint256 bdv, int96 stem)
+        returns (uint256 amount, uint256 _bdv, int96 stem)
     {
         amount = LibTransfer.receiveToken(
             IERC20(token),
@@ -63,7 +62,7 @@ contract SiloFacet is TokenSilo {
             msg.sender,
             mode
         );
-        (bdv, stem) = _deposit(msg.sender, token, amount);
+        (_bdv, stem) = _deposit(msg.sender, token, amount);
     }
 
     //////////////////////// WITHDRAW ////////////////////////
@@ -132,7 +131,7 @@ contract SiloFacet is TokenSilo {
      * @param token Address of the whitelisted ERC20 token to Transfer.
      * @param stem stem of Deposit from which to Transfer.
      * @param amount Amount of `token` to Transfer.
-     * @return bdv The BDV included in this transfer, now owned by `recipient`.
+     * @return _bdv The BDV included in this transfer, now owned by `recipient`.
      *
      * @dev An allowance is required if `sender !== msg.sender`
      * 
@@ -146,14 +145,14 @@ contract SiloFacet is TokenSilo {
         address token,
         int96 stem,
         uint256 amount
-    ) public payable nonReentrant returns (uint256 bdv) {
+    ) public payable nonReentrant returns (uint256 _bdv) {
         if (sender != msg.sender) {
             LibSiloPermit._spendDepositAllowance(sender, msg.sender, token, amount);
         }
         LibSilo._mow(sender, token);
         // Need to update the recipient's Silo as well.
         LibSilo._mow(recipient, token);
-        bdv = _transferDeposit(sender, recipient, token, stem, amount);
+        _bdv = _transferDeposit(sender, recipient, token, stem, amount);
     }
 
     /** 
@@ -180,7 +179,7 @@ contract SiloFacet is TokenSilo {
         uint256[] calldata amounts
     ) public payable nonReentrant returns (uint256[] memory bdvs) {
         require(amounts.length > 0, "Silo: amounts array is empty");
-        for (uint256 i = 0; i < amounts.length; i++) {
+        for (uint256 i = 0; i < amounts.length; ++i) {
             require(amounts[i] > 0, "Silo: amount in array is 0");
             if (sender != msg.sender) {
                 LibSiloPermit._spendDepositAllowance(sender, msg.sender, token, amounts[i]);
@@ -249,7 +248,7 @@ contract SiloFacet is TokenSilo {
         // allowance requirements are checked in transferDeposit
         address token;
         int96 cumulativeGrownStalkPerBDV;
-        for(uint i; i < depositIds.length; i++) {
+        for(uint i; i < depositIds.length; ++i) {
             (token, cumulativeGrownStalkPerBDV) = 
                 LibBytes.unpackAddressAndStem(depositIds[i]);
             transferDeposit(
@@ -281,7 +280,7 @@ contract SiloFacet is TokenSilo {
 
 
     /** 
-     * @notice Claim Earned Beans and their associated Stalk for 
+     * @notice Claim Earned Beans and their associated Stalk and Plantable Seeds for
      * `msg.sender`.
      *
      * The Stalk associated with Earned Beans is commonly called "Earned Stalk".
@@ -294,22 +293,19 @@ contract SiloFacet is TokenSilo {
      * 
      * In practice, when Seeds are Planted, all Earned Beans are Deposited in 
      * the current Season.
-     * 
-     * FIXME(doc): Publius has suggested we explain `plant()` as "Planting Seeds"
-     * and that this happens to deposit Earned Beans, rather than the above approach.
      */
-    function plant(address token) external payable returns (uint256 beans) {
-        return _plant(msg.sender, token);
+    function plant() external payable returns (uint256 beans, int96 stem) {
+        return _plant(msg.sender);
     }
 
     /** 
-     * @notice Claim rewards from a Season Of Plenty (SOP)
-     * @dev FIXME(naming): rename to Flood
+     * @notice Claim rewards from a Flood (Was Season of Plenty)
      */
     function claimPlenty() external payable {
         _claimPlenty(msg.sender);
     }
 
+<<<<<<< HEAD
     /*
      * Update Unripe Deposits
      */
@@ -398,6 +394,14 @@ contract SiloFacet is TokenSilo {
             LibSilo.stalkReward(deltaSeeds, season() - _season)
         );
         LibSilo.depositSiloAssets(msg.sender, deltaSeeds, deltaStalk);
+=======
+    function bdv(address token, uint256 amount)
+        external
+        view
+        returns (uint256 _bdv)
+    {
+        _bdv = LibTokenSilo.beanDenominatedValue(token, amount);
+>>>>>>> 05f7b18b21d963ff0f95aa0f4dd02a5520ca7dcf
     }
 
 }

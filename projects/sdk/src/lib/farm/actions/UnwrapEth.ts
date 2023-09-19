@@ -5,12 +5,11 @@ import { FarmFromMode } from "../types";
 export class UnwrapEth extends StepClass<BasicPreparedResult> {
   public name: string = "unwrapEth";
 
-  constructor(private fromMode: FarmFromMode = FarmFromMode.INTERNAL) {
+  constructor(public readonly fromMode: FarmFromMode = FarmFromMode.INTERNAL) {
     super();
   }
 
   async run(_amountInStep: ethers.BigNumber, context: RunContext) {
-    UnwrapEth.sdk.debug(`[${this.name}.run()]`, { fromMode: this.fromMode, _amountInStep, context });
     return {
       name: this.name,
       amountOut: _amountInStep, // amountInStep should be an amount of ETH.

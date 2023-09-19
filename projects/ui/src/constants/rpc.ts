@@ -6,7 +6,9 @@ import { SupportedChainId } from './chains';
  */
 export const TESTNET_RPC_ADDRESSES: { [chainId: number]: string } = {
   [SupportedChainId.LOCALHOST]: 'http://localhost:8545',
-  [SupportedChainId.CUJO]: 'https://bean-rpc.treetree.finance',
+  [SupportedChainId.TESTNET]:
+    'https://rpc.vnet.tenderly.co/devnet/silo-v3/3ed19e82-a81c-45e5-9b16-5e385aa74587',
+  [SupportedChainId.ANVIL1]: 'https://anvil1.bean.money:443',
 };
 
 export const BEANSTALK_SUBGRAPH_ADDRESSES: { [chainId: number]: string } = {
@@ -15,7 +17,7 @@ export const BEANSTALK_SUBGRAPH_ADDRESSES: { [chainId: number]: string } = {
   // [SupportedChainId.MAINNET]:   'https://api.thegraph.com/subgraphs/name/cujowolf/beanstalk',
   [SupportedChainId.LOCALHOST]:
     'https://api.thegraph.com/subgraphs/name/cujowolf/beanstalk-dev-replanted',
-  [SupportedChainId.CUJO]:
+  [SupportedChainId.TESTNET]:
     'http://graph.playgrounds.academy/subgraphs/name/beanstalk',
 };
 
@@ -26,6 +28,6 @@ export const BEAN_SUBGRAPH_ADDRESSES: { [chainId: number]: string } = {
     'https://api.thegraph.com/subgraphs/name/cujowolf/bean',
   [SupportedChainId.LOCALHOST]:
     'https://api.thegraph.com/subgraphs/name/cujowolf/bean',
-  [SupportedChainId.CUJO]:
+  [SupportedChainId.TESTNET]:
     'https://api.thegraph.com/subgraphs/name/cujowolf/bean',
 };

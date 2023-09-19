@@ -115,7 +115,7 @@ contract Account {
          * Previously held the V1 Silo Deposits/Withdrawals for Beans.
 
          * NOTE: While the Silo V1 format is now deprecated, this storage slot is used for gas
-         * efficiency to store Unripe BEAN deposits. See {FIXME(doc)} for more.
+         * efficiency to store Unripe BEAN deposits. See {LibUnripeSilo} for more.
          */
         AssetSilo bean; 
 
@@ -128,7 +128,7 @@ contract Account {
          * format in the `s.a[account].legacyDeposits` mapping.
          *
          * NOTE: While the Silo V1 format is now deprecated, unmigrated Silo V1 deposits are still
-         * stored in this storage slot. See {FIXME(doc)} for more.
+         * stored in this storage slot. See {LibUnripeSilo} for more.
          * 
          */
         AssetSilo lp; 
@@ -138,11 +138,6 @@ contract Account {
          */
         Silo s;
         
-        /*
-         * @notice DEPRECATED
-         * 
-         * @dev FIXME(doc)
-         */
         uint32 votedUntil; // DEPRECATED – Replant removed on-chain governance including the ability to vote on BIPs.
         uint32 lastUpdate; // The Season in which the Farmer last updated their Silo.
         uint32 lastSop; // The last Season that a SOP occured at the time the Farmer last updated their Silo.
@@ -201,7 +196,6 @@ contract Storage {
      * @notice DEPRECATED: Contained data about each BIP (Beanstalk Improvement Proposal).
      * @dev Replant moved governance off-chain. This struct is left for future reference.
      * 
-     * FIXME: pauseOrUnpause takes up an entire slot
      */
     struct Bip {
         address proposer; // ───┐ 20
@@ -241,14 +235,18 @@ contract Storage {
     /**
      * @notice System-level Silo state; contains deposit and withdrawal data for a particular whitelisted Token.
      * @param deposited The total amount of this Token currently Deposited in the Silo.
+     * @param depositedBdv The total bdv of this Token currently Deposited in the Silo.
      * @param withdrawn The total amount of this Token currently Withdrawn From the Silo.
      * @dev {Storage.State} contains a mapping from Token address => AssetSilo.
+     * Currently, the bdv of deposits are asynchronous, and require an on-chain transaction to update.
+     * Thus, the total bdv of deposits cannot be calculated, and must be stored and updated upon a bdv change.
      * 
      * Note that "Withdrawn" refers to the amount of Tokens that have been Withdrawn
      * but not yet Claimed. This will be removed in a future BIP.
      */
     struct AssetSilo {
-        uint256 deposited;
+        uint128 deposited;
+        uint128 depositedBdv;
         uint256 withdrawn;
     }
 
@@ -283,7 +281,7 @@ contract Storage {
     /**
      * @notice System-level Rain balances. Rain occurs when P > 1 and the Pod Rate Excessively Low.
      * @dev The `raining` storage variable is stored in the Season section for a gas efficient read operation.
-     * @param deprecated Previously held FIXME
+     * @param deprecated Previously held Rain start and Rain status variables. Now moved to Season struct for gas efficiency.
      * @param pods The number of Pods when it last started Raining.
      * @param roots The number of Roots when it last started Raining.
      */
@@ -320,7 +318,6 @@ contract Storage {
         uint32 sunriseBlock; //    │ 4 (23)
         bool abovePeg; //          | 1 (24)
         uint16 stemStartSeason; // ┘ 2 (26/32)
-        uint48 lastUsdPrice;
         uint256 start;
         uint256 period;
         uint256 timestamp;
@@ -386,8 +383,6 @@ contract Storage {
          * 
          * It is called by `LibTokenSilo` through the use of `delegatecall`
          * to calculate a token's BDV at the time of Deposit.
-         *
-         * FIXME(doc) LibTokenSilo performs a call, not a delegatecall.
          */
         bytes4 selector;
         /*
@@ -415,7 +410,7 @@ contract Storage {
          */
         bytes1 encodeType;
 
-        /// @dev  3 bytes of additional storage space is available here.
+        /// @dev  7 bytes of additional storage space is available here.
 
     }
 
@@ -440,19 +435,6 @@ contract Storage {
         address underlyingToken;
         uint256 balanceOfUnderlying;
         bytes32 merkleRoot;
-    }
-    
-   /**
-    * @notice Metadata stores the metadata for a given Deposit.
-    * Deposits are stored as a bytes32, which is the hash of the Deposit's metadata for gas efficency. 
-    * In the future, there may be a need for a deposit to have metadata of the deposit. 
-    * This struct is used to store that metadata.
-    * this metadata is not initalized on deposit, but rather when someone calls "setMetadata" for the first time.
-    */
-    struct Metadata {
-        address token; // the address of the token for a deposit 
-        int96 stem; // the grown stalk per BDV assoiated with the deposit
-        uint256 id; // the id of the deposit
     }
 }
 
@@ -504,6 +486,7 @@ contract Storage {
  * @param isFarm Stores whether the function is wrapped in the `farm` function (1 if not, 2 if it is).
  * @param ownerCandidate Stores a candidate address to transfer ownership to. The owner must claim the ownership transfer.
  * @param wellOracleSnapshots A mapping from Well Oracle address to the Well Oracle Snapshot.
+ * @param beanEthPrice Stores the beanEthPrice during the sunrise() function. Returns 1 otherwise.
  */
 struct AppStorage {
     uint8 deprecated_index;
@@ -560,5 +543,8 @@ struct AppStorage {
 
     // Ownership
     address ownerCandidate;
+
+    // Well
     mapping(address => bytes) wellOracleSnapshots;
+    uint256 beanEthPrice;
 }

@@ -105,6 +105,7 @@ type UtilProps = {
     width: number,
     keys: string[],
     stackedArea?: boolean,
+    pegLine?: boolean,
     isTWAP?: boolean
   ) => Scales[];
   getPointerValue: (
@@ -136,13 +137,18 @@ export type BaseChartProps = {
   keys: string[];
   curve?: CurveFactory | keyof typeof CURVES;
   scale?: keyof typeof SCALES;
+  pegLine?: boolean;
   isTWAP?: boolean;
   horizontalLineNumber?: number;
   stylesConfig?: ChartMultiStyles;
   stackedArea?: boolean;
   tooltip?: boolean | (({ d }: { d?: BaseDataPoint[] }) => JSX.Element | null);
   getDisplayValue: (v: BaseDataPoint[]) => number;
-  onCursor?: (season: number | undefined, v?: number | undefined, date?: Date | undefined) => void;
+  onCursor?: (
+    season: number | undefined,
+    v?: number | undefined,
+    date?: Date | undefined
+  ) => void;
   children?: (props: ChartChildParams) => React.ReactElement | null;
   yTickFormat?: TickFormatter<NumberLike>;
   formatValue?: (value: number) => string | JSX.Element;
@@ -385,6 +391,7 @@ const generateScale = (
   width: number,
   keys: string[],
   isStackedArea?: boolean,
+  pegLine?: boolean,
   isTWAP?: boolean
 ) =>
   seriesData.map((data) => {

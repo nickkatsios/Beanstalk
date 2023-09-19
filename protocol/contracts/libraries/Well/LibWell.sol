@@ -6,24 +6,21 @@ pragma solidity =0.7.6;
 pragma experimental ABIEncoderV2;
 
 import {SafeMath} from "@openzeppelin/contracts/math/SafeMath.sol";
-import {IInstantaneousPump} from "@wells/interfaces/pumps/IInstantaneousPump.sol";
+import {IInstantaneousPump} from "contracts/interfaces/basin/pumps/IInstantaneousPump.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Call, IWell} from "@wells/interfaces/IWell.sol";
-import {IWellFunction} from "@wells/interfaces/IWellFunction.sol";
-import {C} from "~/C.sol";
+import {Call, IWell} from "contracts/interfaces/basin/IWell.sol";
+import {IWellFunction} from "contracts/interfaces/basin/IWellFunction.sol";
+import {C} from "contracts/C.sol";
 import {AppStorage, LibAppStorage} from "../LibAppStorage.sol";
-import {LibUsdOracle} from "~/libraries/Oracle/LibUsdOracle.sol";
-/**=
- * @title Well Library contains Well helper functions.
- **/
+import {LibUsdOracle} from "contracts/libraries/Oracle/LibUsdOracle.sol";
 
+/**
+ * @title Well Library
+ * Contains helper functions for common Well related functionality.
+ **/
 library LibWell {
 
-    // TODO: set
-    address constant internal BEANSTALK_PUMP = 0xc4AD29ba4B3c580e6D59105FFf484999997675Ff;
-
-    // TODO: Optionally fail if below minimum amount.
-    uint256 constant private MIN_BEANS = 1e11; // 10,000 Beans
+    using SafeMath for uint256;
 
     /**
      * @dev Returns the price ratios between `tokens` and the index of Bean in `tokens`.
@@ -31,17 +28,24 @@ library LibWell {
      */
     function getRatiosAndBeanIndex(IERC20[] memory tokens) internal view returns (
         uint[] memory ratios,
-        uint beanIndex
+        uint beanIndex,
+        bool success
     ) {
+        success = true;
         ratios = new uint[](tokens.length);
+        beanIndex = type(uint256).max;
         for (uint i; i < tokens.length; ++i) {
             if (C.BEAN == address(tokens[i])) {
                 beanIndex = i;
                 ratios[i] = 1e6;
             } else {
                 ratios[i] = LibUsdOracle.getUsdPrice(address(tokens[i]));
+                if (ratios[i] == 0) {
+                    success = false;
+                }
             }
         }
+        require(beanIndex != type(uint256).max, "Bean not in Well.");
     }
     
     /**
@@ -53,6 +57,7 @@ library LibWell {
                 return beanIndex;
             }
         }
+        revert("Bean not in Well.");
     }
 
     /**

@@ -5,11 +5,15 @@ pragma solidity ^0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "~/beanstalk/sun/SeasonFacet/SeasonFacet.sol";
+import "contracts/beanstalk/sun/SeasonFacet/SeasonFacet.sol";
+import {LibDiamond} from "contracts/libraries/LibDiamond.sol";
+import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "../MockToken.sol";
-import "~/libraries/LibBytes.sol";
-import {LibEthUsdOracle} from "~/libraries/Oracle/LibEthUsdOracle.sol";
-import {LibAppStorage} from "~/libraries/LibAppStorage.sol";
+import "contracts/libraries/LibBytes.sol";
+import {LibEthUsdOracle, LibUniswapOracle, LibChainlinkOracle} from "contracts/libraries/Oracle/LibEthUsdOracle.sol";
+import {LibUsdOracle} from "contracts/libraries/Oracle/LibUsdOracle.sol";
+import {LibAppStorage} from "contracts/libraries/LibAppStorage.sol";
+import "contracts/libraries/LibBytes.sol";
 
 /**
  * @author Publius
@@ -29,6 +33,7 @@ interface ResetPool {
 }
 
 contract MockSeasonFacet is SeasonFacet {
+
     using SafeMath for uint256;
     using LibSafeMath32 for uint32;
 
@@ -234,7 +239,7 @@ contract MockSeasonFacet is SeasonFacet {
     }
 
     function captureCurveE() external returns (int256 deltaB) {
-        (deltaB, ) = LibCurveMinting.capture();
+        deltaB = LibCurveMinting.capture();
         s.season.timestamp = block.timestamp;
         emit DeltaB(deltaB);
     }
@@ -272,8 +277,16 @@ contract MockSeasonFacet is SeasonFacet {
 
     //fake the grown stalk per bdv deployment, does same as InitBipNewSilo
     function deployStemsUpgrade() external {
+        LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
+
+        ds.supportedInterfaces[type(IERC1155).interfaceId] = true;
+        ds.supportedInterfaces[0x0e89341c] = true;
+
 
         uint32 currentSeason = s.season.current;
+
+        // Clear the storage variable
+        delete s.s.deprecated_seeds;
 
         s.ss[C.BEAN].stalkEarnedPerSeason = 2*1e6;
         s.ss[C.BEAN].stalkIssuedPerBdv = 10000;
@@ -306,11 +319,6 @@ contract MockSeasonFacet is SeasonFacet {
     }
 
     //constants for old seeds values
-    
-
-    function getEthPrice() external view returns (uint256 price) {
-        return LibIncentive.getEthUsdcPrice();
-    }
 
     function lastDSoil() external view returns (uint256) {
         return uint256(s.w.lastDSoil);
@@ -328,7 +336,23 @@ contract MockSeasonFacet is SeasonFacet {
         return uint256(s.w.t);
     }
 
+    function getUsdPrice(address token) external view returns (uint256) {
+        return LibUsdOracle.getUsdPrice(token);
+    }
+
     function getEthUsdPrice() external view returns (uint256) {
         return LibEthUsdOracle.getEthUsdPrice();
+    }
+
+    function getEthUsdcPrice() external view returns (uint256) {
+        return LibUniswapOracle.getEthUsdcPrice();
+    }
+
+    function getEthUsdtPrice() external view returns (uint256) {
+        return LibUniswapOracle.getEthUsdtPrice();
+    }
+
+    function getChainlinkEthUsdPrice() external view returns (uint256) {
+        return LibChainlinkOracle.getEthUsdPrice();
     }
 }

@@ -20,6 +20,7 @@ describe('Curve Convert', function () {
     this.diamondLoupeFacet = await ethers.getContractAt('DiamondLoupeFacet', this.diamond.address)
     this.silo = await ethers.getContractAt('SiloFacet', this.diamond.address);
     this.convert = await ethers.getContractAt('ConvertFacet', this.diamond.address);
+    this.convertGet = await ethers.getContractAt('ConvertGettersFacet', this.diamond.address);
     this.bean = await ethers.getContractAt('MockToken', BEAN);
     this.threePool = await ethers.getContractAt('Mock3Curve', THREE_POOL);
     this.threeCurve = await ethers.getContractAt('MockToken', THREE_CURVE);
@@ -58,32 +59,32 @@ describe('Curve Convert', function () {
   describe('calculates beans to peg', async function () {
     it('p > 1', async function () {
       await this.beanMetapool.connect(user).add_liquidity([toBean('0'), to18('200')], to18('150'));
-      expect(await this.convert.getMaxAmountIn(this.bean.address, this.beanMetapool.address)).to.be.equal(ethers.utils.parseUnits('200', 6));
+      expect(await this.convertGet.getMaxAmountIn(this.bean.address, this.beanMetapool.address)).to.be.equal(ethers.utils.parseUnits('200', 6));
     });
 
     it('p = 1', async function () {
-      expect(await this.convert.getMaxAmountIn(this.bean.address, this.beanMetapool.address)).to.be.equal('0');
+      expect(await this.convertGet.getMaxAmountIn(this.bean.address, this.beanMetapool.address)).to.be.equal('0');
     });
 
     it('p < 1', async function () {
       await this.beanMetapool.connect(user).add_liquidity([toBean('200'), to18('0')], to18('150'));
-      expect(await this.convert.getMaxAmountIn(this.bean.address, this.beanMetapool.address)).to.be.equal('0');
+      expect(await this.convertGet.getMaxAmountIn(this.bean.address, this.beanMetapool.address)).to.be.equal('0');
     });
   });
 
   describe('calculates lp to peg', async function () {
     it('p > 1', async function () {
       await this.beanMetapool.connect(user2).add_liquidity([toBean('200'), to18('0')], to18('150'));
-      expect(await this.convert.getMaxAmountIn(this.beanMetapool.address, this.bean.address)).to.be.equal('199185758314813528598');
+      expect(await this.convertGet.getMaxAmountIn(this.beanMetapool.address, this.bean.address)).to.be.equal('199185758314813528598');
     });
 
     it('p = 1', async function () {
-      expect(await this.convert.getMaxAmountIn(this.beanMetapool.address, this.bean.address)).to.be.equal('0');
+      expect(await this.convertGet.getMaxAmountIn(this.beanMetapool.address, this.bean.address)).to.be.equal('0');
     });
 
     it('p < 1', async function () {
       await this.beanMetapool.connect(user).add_liquidity([toBean('0'), to18('200')], to18('150'));
-      expect(await this.convert.getMaxAmountIn(this.beanMetapool.address, this.bean.address)).to.be.equal('0');
+      expect(await this.convertGet.getMaxAmountIn(this.beanMetapool.address, this.bean.address)).to.be.equal('0');
     });
   })
 
@@ -105,7 +106,7 @@ describe('Curve Convert', function () {
 
     });
 
-    describe('below max', async function () {
+  describe('below max', async function () {
       beforeEach(async function () {
         await this.season.teleportSunrise(12);
         await this.silo.connect(user).deposit(this.bean.address, toBean('200'), EXTERNAL);
@@ -113,7 +114,7 @@ describe('Curve Convert', function () {
       });
 
       it('it gets amount out', async function () {
-        expect(await this.convert.getAmountOut(
+        expect(await this.convertGet.getAmountOut(
           BEAN,
           BEAN_3_CURVE,
           toBean('100')
@@ -142,7 +143,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq(toBean('100'));
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq(toBean('100'));
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq('100634476734756985505');
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(toBean('100'));
           //expect(await this.silo.totalSeeds()).to.eq(toBean('600'));
           expect(await this.silo.totalStalk()).to.eq(toStalk('200'));
         });
@@ -180,7 +183,7 @@ describe('Curve Convert', function () {
       });
 
       it('it gets amount out', async function () {
-        expect(await this.convert.getAmountOut(
+        expect(await this.convertGet.getAmountOut(
           BEAN,
           BEAN_3_CURVE,
           toBean('200')
@@ -195,7 +198,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq(toBean('100'));
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq(toBean('100'));
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq('200832430692705624354');
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(toBean('200'));
           //expect(await this.silo.totalSeeds()).to.eq(toBean('1000'));
           expect(await this.silo.totalStalk()).to.eq(toStalk('300'));
         });
@@ -242,7 +247,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq(toBean('0'));
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq(toBean('0'));
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq('200832430692705624354');
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(to6('200'));
           //expect(await this.silo.totalSeeds()).to.eq(toBean('800'));
           expect(await this.silo.totalStalk()).to.eq(toStalk('200'));
         });
@@ -292,7 +299,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq(toBean('0'));
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq(toBean('0'));
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq('200832430692705624354');
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(to6('200'));
           //expect(await this.silo.totalSeeds()).to.eq(toBean('800'));
           expect(await this.silo.totalStalk()).to.eq(toStalk('200.08'));
         });
@@ -343,7 +352,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq(toBean('0'));
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq(toBean('0'));
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq('200832430692705624354');
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(to6('200'));
           //expect(await this.silo.totalSeeds()).to.eq(toBean('800'));
           expect(await this.silo.totalStalk()).to.eq(toStalk('200.08'));
         });
@@ -409,7 +420,7 @@ describe('Curve Convert', function () {
 
 
       it('it gets amount out', async function () {
-        expect(await this.convert.getAmountOut(
+        expect(await this.convertGet.getAmountOut(
           BEAN_3_CURVE,
           BEAN,
           to18('100')
@@ -424,7 +435,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq('100618167');
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq('100618167');
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq(to18('900'));
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(to6('900'));
           //expect(await this.silo.totalSeeds()).to.eq('3801236334');
           expect(await this.silo.totalStalk()).to.eq('10006181670000');
         });
@@ -465,7 +478,7 @@ describe('Curve Convert', function () {
 
 
       it('it gets amount out', async function () {
-        expect(await this.convert.getAmountOut(
+        expect(await this.convertGet.getAmountOut(
           BEAN_3_CURVE,
           BEAN,
           '199185758314813528598',
@@ -480,7 +493,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq('200018189');
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq('200018189');
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq('800814241685186471402');
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq('800814242');
           //expect(await this.silo.totalSeeds()).to.eq('3603293346');
           expect(await this.silo.totalStalk()).to.eq('10008324310000');
         });
@@ -533,7 +548,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq('100618167');
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq('100618167');
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq(to18('900'));
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(to6('900'));
 
           // the seasons value for total stalk here was 10009982906334, because you would have
           // lost stalk when the deposit would have required a negative season
@@ -587,7 +604,9 @@ describe('Curve Convert', function () {
 
         it('properly updates total values', async function () {
           expect(await this.silo.getTotalDeposited(this.bean.address)).to.eq('100618167');
+          expect(await this.silo.getTotalDepositedBdv(this.bean.address)).to.eq('100618167');
           expect(await this.silo.getTotalDeposited(this.beanMetapool.address)).to.eq(to18('900'));
+          expect(await this.silo.getTotalDepositedBdv(this.beanMetapool.address)).to.eq(to6('900'));
           expect(await this.silo.totalStalk()).to.eq('10008082288167'); //updated from 10007981670000 for season based system
         });
 

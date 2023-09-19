@@ -1,24 +1,15 @@
 const { expect } = require('chai');
 const { deploy } = require('../scripts/deploy.js')
 const { takeSnapshot, revertToSnapshot } = require("./utils/snapshot");
-const { BEAN, BEANSTALK_PUMP, WETH } = require('./utils/constants');
 const { to18, to6 } = require('./utils/helpers.js');
 const { getBeanstalk, getBean } = require('../utils/contracts.js');
-const { getWellContractFactory, whitelistWell, getWellContractAt, deployMockWell } = require('../utils/well.js');
+const { whitelistWell, deployMockWell } = require('../utils/well.js');
+const { setEthUsdPrice, setEthUsdcPrice, setEthUsdtPrice } = require('../scripts/usdOracle.js');
+const { advanceTime } = require('../utils/helpers.js');
 let user,user2,owner;
 let userAddress, ownerAddress, user2Address;
-const ZERO_BYTES = ethers.utils.formatBytes32String('0x0')
 
 let snapshotId;
-
-async function advanceTime(time) {
-  let timestamp = (await ethers.provider.getBlock('latest')).timestamp;
-  timestamp += time
-  await hre.network.provider.request({
-    method: "evm_setNextBlockTimestamp",
-    params: [timestamp],
-  });
-}
 
 describe('Well Minting', function () {
   before(async function () {
@@ -34,6 +25,10 @@ describe('Well Minting', function () {
     await this.bean.mint(userAddress, to18('1'));
 
     [this.well, this.wellFunction, this.pump] = await deployMockWell()
+
+    await setEthUsdPrice('999.998018')
+    await setEthUsdcPrice('1000')
+    await setEthUsdtPrice('1000')
 
     await whitelistWell(this.well.address, '10000', to6('4'))
 
@@ -110,6 +105,37 @@ describe('Well Minting', function () {
     it("Checks a delta B < 0", async function () {
       expect(await this.season.poolDeltaB(this.well.address)).to.be.equal('-225006447371')
     })
+  })
+
+  describe("Beans below min", async function () {
+    beforeEach(async function () {
+      await this.well.setReserves([to6('1'), to18('1000')])
+      await this.well.setReserves([to6('1'), to18('1000')])
+      await advanceTime(3600)
+      await user.sendTransaction({
+        to: beanstalk.address,
+        value: 0
+      })
+    })
+
+    it("Captures a Beans below min", async function () {
+      expect(await this.season.callStatic.captureWellE(this.well.address)).to.be.equal('0')
+    })
+
+    it("Checks a Beans below min", async function () {
+      expect(await this.season.poolDeltaB(this.well.address)).to.be.equal('0')
+    })
+
+  })
+
+  it("Broken USD Oracle", async function () {
+    await setEthUsdPrice('0')
+    await advanceTime(3600)
+    await user.sendTransaction({
+      to: beanstalk.address,
+      value: 0
+    })
+    expect(await this.season.callStatic.captureWellE(this.well.address)).to.be.equal('0')
   })
   
 })

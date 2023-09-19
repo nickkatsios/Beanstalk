@@ -58,6 +58,7 @@ import ClaimBeanDrawerContent from '~/components/Common/Form/FormTxn/ClaimBeanDr
 import FormTxnProvider from '~/components/Common/Form/FormTxnProvider';
 import useFormTxnContext from '~/hooks/sdk/useFormTxnContext';
 import { ClaimAndDoX, DepositFarmStep, FormTxn } from '~/lib/Txn';
+import useMigrationNeeded from '~/hooks/farmer/useMigrationNeeded';
 
 // -----------------------------------------------------------------------
 
@@ -118,6 +119,7 @@ const DepositForm: FC<
 
   const combinedTokenState = [...values.tokens, values.claimableBeans];
 
+  const migrationNeeded = useMigrationNeeded();
   const [isTokenSelectVisible, showTokenSelect, hideTokenSelect] = useToggle();
   const { amount, bdv, stalk, seeds, actions } = getDepositSummary(
     whitelistedToken,
@@ -174,10 +176,17 @@ const DepositForm: FC<
 
   /// Derived
   const isReady = bdv.gt(0);
-
   const noAmount =
     values.tokens[0].amount === undefined &&
     values.claimableBeans.amount?.eq(0);
+
+  /// Approval Checks
+  const shouldApprove =
+    values.balanceFrom === BalanceFrom.EXTERNAL ||
+    (values.balanceFrom === BalanceFrom.TOTAL &&
+      values.tokens[0].amount?.gt(
+        balances[tokenIn.address]?.internal || ZERO_BN
+      ));
 
   return (
     <FormWithDrawer noValidate autoComplete="off" siblingRef={siblingRef}>
@@ -217,11 +226,12 @@ const DepositForm: FC<
               handleQuote={handleQuote}
               balanceFrom={values.balanceFrom}
               params={quoteProviderParams}
+              // FIXME: remove later
+              disabled={migrationNeeded}
             />
           );
         })}
-
-        <ClaimBeanDrawerToggle />
+        {migrationNeeded === true ? null : <ClaimBeanDrawerToggle />}
         {isReady ? (
           <>
             <TxnSeparator />
@@ -274,13 +284,13 @@ const DepositForm: FC<
         ) : null}
         <SmartSubmitButton
           loading={isSubmitting}
-          disabled={isSubmitting || noAmount}
+          disabled={isSubmitting || noAmount || migrationNeeded === true}
           type="submit"
           variant="contained"
           color="primary"
           size="large"
           contract={contract}
-          tokens={values.tokens}
+          tokens={shouldApprove ? values.tokens : []}
           mode="auto"
         >
           Deposit
@@ -319,11 +329,20 @@ const DepositPropProvider: FC<{
   const initTokenList = useMemo(() => {
     const tokens = sdk.tokens;
     if (tokens.BEAN.equals(whitelistedToken)) {
-      return [tokens.ETH, tokens.BEAN];
+      return [
+        tokens.BEAN,
+        tokens.ETH,
+        tokens.WETH,
+        tokens.CRV3,
+        tokens.DAI,
+        tokens.USDC,
+        tokens.USDT,
+      ];
     }
     return [
       tokens.BEAN,
       tokens.ETH,
+      tokens.WETH,
       whitelistedToken,
       tokens.CRV3,
       tokens.DAI,
@@ -331,7 +350,34 @@ const DepositPropProvider: FC<{
       tokens.USDT,
     ];
   }, [sdk.tokens, whitelistedToken]);
+
+  const priorityList = useMemo(() => {
+    const tokens = sdk.tokens;
+    if (tokens.BEAN.equals(whitelistedToken)) {
+      return [
+        tokens.BEAN,
+        tokens.ETH,
+        tokens.WETH,
+        tokens.CRV3,
+        tokens.DAI,
+        tokens.USDC,
+        tokens.USDT,
+      ];
+    }
+    return [
+      whitelistedToken,
+      tokens.ETH,
+      tokens.WETH,
+      tokens.BEAN,
+      tokens.CRV3,
+      tokens.DAI,
+      tokens.USDC,
+      tokens.USDT,
+    ];
+  }, [sdk.tokens, whitelistedToken]);
+
   const allAvailableTokens = useTokenMap(initTokenList);
+  const priorityListTokens = useTokenMap(priorityList);
 
   /// Token List
   const [tokenList, preferredTokens] = useMemo(() => {
@@ -342,8 +388,9 @@ const DepositPropProvider: FC<{
     }
 
     const _tokenList = Object.values(allAvailableTokens);
-    return [_tokenList, _tokenList.map((t) => ({ token: t }))];
-  }, [whitelistedToken, allAvailableTokens]);
+    const _priorityList = Object.values(priorityListTokens);
+    return [_tokenList, _priorityList.map((t) => ({ token: t }))];
+  }, [whitelistedToken, allAvailableTokens, priorityListTokens]);
 
   const baseToken = usePreferredToken(preferredTokens, 'use-best') as
     | ERC20Token
@@ -440,7 +487,7 @@ const DepositPropProvider: FC<{
           throw new Error('Only one token supported at this time');
         }
 
-        const { BEAN } = sdk.tokens;
+        const { BEAN, BEAN_ETH_WELL_LP } = sdk.tokens;
 
         const formData = values.tokens[0];
         const claimData = values.claimableBeans;
@@ -494,7 +541,9 @@ const DepositPropProvider: FC<{
         const { execute } = await txnBundler.bundle(
           depositTxn,
           amountIn,
-          values.settings.slippage
+          values.settings.slippage,
+          target.equals(BEAN_ETH_WELL_LP) ? 1.2 : undefined,
+          tokenIn.symbol !== "BEANETH" && target.equals(BEAN_ETH_WELL_LP)
         );
 
         const txn = await execute();

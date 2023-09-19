@@ -8,25 +8,16 @@ export class ExchangeUnderlying extends StepClass<BasicPreparedResult> {
   public name: string = "exchangeUnderlying";
 
   constructor(
-    private pool: string,
-    private tokenIn: Token,
-    private tokenOut: Token,
-    private fromMode: FarmFromMode = FarmFromMode.INTERNAL_TOLERANT,
-    private toMode: FarmToMode = FarmToMode.INTERNAL
+    public readonly pool: string,
+    public readonly tokenIn: Token,
+    public readonly tokenOut: Token,
+    public readonly fromMode: FarmFromMode = FarmFromMode.INTERNAL_TOLERANT,
+    public readonly toMode: FarmToMode = FarmToMode.INTERNAL
   ) {
     super();
   }
 
   async run(_amountInStep: ethers.BigNumber, context: RunContext) {
-    ExchangeUnderlying.sdk.debug(`>[${this.name}.run()]`, {
-      pool: this.pool,
-      tokenIn: this.tokenIn.symbol,
-      tokenOut: this.tokenOut.symbol,
-      amountInStep: _amountInStep,
-      fromMode: this.fromMode,
-      toMode: this.toMode,
-      context
-    });
     const [tokenIn, tokenOut] = Workflow.direction(
       this.tokenIn,
       this.tokenOut,

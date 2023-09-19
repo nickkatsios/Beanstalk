@@ -3,9 +3,9 @@
 pragma solidity =0.7.6;
 pragma experimental ABIEncoderV2;
 
-import "~/libraries/Minting/LibCurveMinting.sol";
-import "~/beanstalk/ReentrancyGuard.sol";
-import "~/libraries/Minting/LibWellMinting.sol";
+import "contracts/libraries/Minting/LibCurveMinting.sol";
+import "contracts/beanstalk/ReentrancyGuard.sol";
+import "contracts/libraries/Minting/LibWellMinting.sol";
 import "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
 /**
@@ -19,16 +19,15 @@ contract Oracle is ReentrancyGuard {
 
     //////////////////// ORACLE GETTERS ////////////////////
 
-    // TODO: Set
-    address private constant BEAN_ETH_WELL =
-        0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
-
     /**
-     * @notice Returns the current Delta B in the Curve liquidity pool.
+     * @notice Returns the total Delta B across all whitelisted minting liquidity pools.
+     * @dev The whitelisted pools are:
+     * - the Bean:3Crv Metapool
+     * - the Bean:ETH Well
      */
     function totalDeltaB() external view returns (int256 deltaB) {
         deltaB = LibCurveMinting.check().add(
-            LibWellMinting.check(BEAN_ETH_WELL)
+            LibWellMinting.check(C.BEAN_ETH_WELL)
         );
     }
 
@@ -43,9 +42,9 @@ contract Oracle is ReentrancyGuard {
 
     //////////////////// ORACLE INTERNAL ////////////////////
 
-    function stepOracle() internal returns (int256 deltaB, uint256[2] memory balances) {
-        (deltaB, balances) = LibCurveMinting.capture();
-        deltaB = deltaB.add(LibWellMinting.capture(BEAN_ETH_WELL));
+    function stepOracle() internal returns (int256 deltaB) {
+        deltaB = LibCurveMinting.capture();
+        deltaB = deltaB.add(LibWellMinting.capture(C.BEAN_ETH_WELL));
         s.season.timestamp = block.timestamp;
     }
 

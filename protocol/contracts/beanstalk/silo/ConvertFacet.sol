@@ -5,21 +5,20 @@
 pragma solidity =0.7.6;
 pragma experimental ABIEncoderV2;
 
-import {C} from "~/C.sol";
-import {LibSilo} from "~/libraries/Silo/LibSilo.sol";
-import {LibTokenSilo} from "~/libraries/Silo/LibTokenSilo.sol";
-import {Silo} from "./SiloFacet/Silo.sol";
-import {LibSafeMath32} from "~/libraries/LibSafeMath32.sol";
-import {LibConvert} from "~/libraries/Convert/LibConvert.sol";
+import {C} from "contracts/C.sol";
+import {LibSilo} from "contracts/libraries/Silo/LibSilo.sol";
+import {LibTokenSilo} from "contracts/libraries/Silo/LibTokenSilo.sol";
+import {LibSafeMath32} from "contracts/libraries/LibSafeMath32.sol";
+import {LibConvert} from "contracts/libraries/Convert/LibConvert.sol";
 import {ReentrancyGuard} from "../ReentrancyGuard.sol";
-import {LibBytes} from "~/libraries/LibBytes.sol";
+import {LibBytes} from "contracts/libraries/LibBytes.sol";
 import {SafeMath} from "@openzeppelin/contracts/math/SafeMath.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/SafeCast.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @author Publius
- * @title Silo handles depositing and withdrawing Beans and LP, and updating the Silo.
+ * @title ConvertFacet handles converting Deposited assets within the Silo.
  **/
 contract ConvertFacet is ReentrancyGuard {
     using SafeMath for uint256;
@@ -34,6 +33,14 @@ contract ConvertFacet is ReentrancyGuard {
         uint256 toAmount
     );
 
+    event RemoveDeposit(
+        address indexed account,
+        address indexed token,
+        int96 stem,
+        uint256 amount,
+        uint256 bdv
+    );
+
     event RemoveDeposits(
         address indexed account,
         address indexed token,
@@ -41,14 +48,6 @@ contract ConvertFacet is ReentrancyGuard {
         uint256[] amounts,
         uint256 amount,
         uint256[] bdvs
-    );
-
-    event TransferBatch(
-        address indexed operator, 
-        address indexed from, 
-        address indexed to, 
-        uint256[] ids, 
-        uint256[] values
     );
 
     /**
@@ -175,7 +174,7 @@ contract ConvertFacet is ReentrancyGuard {
                 bdvsRemoved
             );
 
-            emit TransferBatch(
+            emit LibSilo.TransferBatch(
                 msg.sender, 
                 msg.sender,
                 address(0), 
@@ -188,7 +187,7 @@ contract ConvertFacet is ReentrancyGuard {
             a.tokensRemoved == maxTokens,
             "Convert: Not enough tokens removed."
         );
-        LibTokenSilo.decrementTotalDeposited(token, a.tokensRemoved);
+        LibTokenSilo.decrementTotalDeposited(token, a.tokensRemoved, a.bdvRemoved);
         LibSilo.burnStalk(
             msg.sender,
             a.stalkRemoved.add(a.bdvRemoved.mul(s.ss[token].stalkIssuedPerBdv))
@@ -214,11 +213,11 @@ contract ConvertFacet is ReentrancyGuard {
         // _stemTip = LibTokenSilo.grownStalkAndBdvToStem(IERC20(token), grownStalk, bdv);
         // grownStalk = uint256(LibTokenSilo.calculateStalkFromStemAndBdv(IERC20(token), _stemTip, bdv));
 
-        (grownStalk, stem) = LibTokenSilo.calculateGrownStalkAndStem(IERC20(token), grownStalk, bdv);
+        (grownStalk, stem) = LibTokenSilo.calculateGrownStalkAndStem(token, grownStalk, bdv);
 
         LibSilo.mintStalk(msg.sender, bdv.mul(LibTokenSilo.stalkIssuedPerBdv(token)).add(grownStalk));
 
-        LibTokenSilo.incrementTotalDeposited(token, amount);
+        LibTokenSilo.incrementTotalDeposited(token, amount, bdv);
         LibTokenSilo.addDepositToAccount(
             msg.sender, 
             token, 
@@ -227,21 +226,5 @@ contract ConvertFacet is ReentrancyGuard {
             bdv,
             LibTokenSilo.Transfer.emitTransferSingle
         );
-    }
-
-    function getMaxAmountIn(address tokenIn, address tokenOut)
-        external
-        view
-        returns (uint256 amountIn)
-    {
-        return LibConvert.getMaxAmountIn(tokenIn, tokenOut);
-    }
-
-    function getAmountOut(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (uint256 amountOut) {
-        return LibConvert.getAmountOut(tokenIn, tokenOut, amountIn);
     }
 }

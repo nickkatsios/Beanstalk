@@ -10,7 +10,7 @@ import "../interfaces/IWETH.sol";
 import "../mocks/MockToken.sol";
 import {AppStorage} from "../beanstalk/AppStorage.sol";
 import "../C.sol";
-import "~/beanstalk/init/InitWhitelist.sol";
+import "contracts/beanstalk/init/InitWhitelist.sol";
 
 /**
  * @author Publius
@@ -56,6 +56,7 @@ contract MockInitDiamond is InitWhitelist {
             (block.timestamp / s.season.period) * s.season.period :
             block.timestamp;
         s.isFarm = 1;
+        s.beanEthPrice = 1;
 
         whitelistPools();
     }

@@ -6,12 +6,11 @@ import { FarmToMode } from "../types";
 export class WrapEth extends StepClass<BasicPreparedResult> {
   public name: string = "wrapEth";
 
-  constructor(private toMode: FarmToMode = FarmToMode.INTERNAL) {
+  constructor(public readonly toMode: FarmToMode = FarmToMode.INTERNAL) {
     super();
   }
 
   async run(_amountInStep: ethers.BigNumber, context: RunContext) {
-    WrapEth.sdk.debug(`>[${this.name}.run()]`, { toMode: this.toMode, _amountInStep, context });
     return {
       name: this.name,
       amountOut: _amountInStep, // amountInStep should be an amount of ETH.

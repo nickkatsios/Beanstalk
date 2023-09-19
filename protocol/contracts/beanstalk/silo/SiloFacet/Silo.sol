@@ -3,14 +3,14 @@
  **/
 
 pragma solidity =0.7.6;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./SiloExit.sol";
 
 /**
  * @title Silo
- * @author Publius
+ * @author Publius, Pizzaman1337, Brean
  * @notice Provides utility functions for claiming Silo rewards, including:
  *
  * - Grown Stalk (see "Mow")
@@ -47,7 +47,7 @@ contract Silo is SiloExit {
      * 
      * @dev Flood was previously called a "Season of Plenty". For backwards
      * compatibility, the event has not been changed. For more information on 
-     * Flood, see: {FIXME(doc)}.
+     * Flood, see: {Weather.sop}.
      */
     event ClaimPlenty(
         address indexed account,
@@ -59,8 +59,7 @@ contract Silo is SiloExit {
      * @notice Emitted when `account` gains or loses Stalk.
      * @param account The account that gained or lost Stalk.
      * @param delta The change in Stalk.
-     * @param deltaRoots The change in Roots. For more info on Roots, see: 
-     * FIXME(doc)
+     * @param deltaRoots The change in Roots.
      *   
      * @dev {StalkBalanceChanged} should be emitted anytime a Deposit is added, removed or transferred AND
      * anytime an account Mows Grown Stalk.
@@ -94,7 +93,7 @@ contract Silo is SiloExit {
      * For more info on Planting, see: {SiloFacet-plant}
      */
      
-    function _plant(address account, address token) internal returns (uint256 beans) {
+    function _plant(address account) internal returns (uint256 beans, int96 stemTip) {
         // Need to Mow for `account` before we calculate the balance of 
         // Earned Beans.
         
@@ -103,13 +102,14 @@ contract Silo is SiloExit {
         // during the vesting period, the earned beans are not issued to the user.
         // thus, the roots calculated for a given user is different. 
         // This is handled by the super mow function, which stores the difference in roots.
-        LibSilo._mow(account, token);
+        LibSilo._mow(account, C.BEAN);
         uint256 accountStalk = s.a[account].s.stalk;
 
         // Calculate balance of Earned Beans.
         beans = _balanceOfEarnedBeans(account, accountStalk);
+        stemTip = LibTokenSilo.stemTipForToken(C.BEAN);
         s.a[account].deltaRoots = 0; // must be 0'd, as calling balanceOfEarnedBeans would give a invalid amount of beans. 
-        if (beans == 0) return 0;
+        if (beans == 0) return (0,stemTip);
         
         // Reduce the Silo's supply of Earned Beans.
         // SafeCast unnecessary because beans is <= s.earnedBeans.
@@ -119,7 +119,7 @@ contract Silo is SiloExit {
         LibTokenSilo.addDepositToAccount(
             account,
             C.BEAN,
-            LibTokenSilo.stemTipForToken(token),
+            stemTip,
             beans, // amount
             beans, // bdv
             LibTokenSilo.Transfer.emitTransferSingle
@@ -130,7 +130,9 @@ contract Silo is SiloExit {
         // Earned Stalk are minted when Earned Beans are minted during Sunrise. See {Sun.sol:rewardToSilo} for details.
         // Similarly, `account` does not receive additional Roots from Earned Stalk during a Plant.
         // The following lines allocate Earned Stalk that has already been minted to `account`.
-        uint256 stalk = beans.mul(C.getStalkPerBean());
+        // Constant is used here rather than s.ss[BEAN].stalkIssuedPerBdv
+        // for gas savings.
+        uint256 stalk = beans.mul(C.STALK_PER_BEAN);
         s.a[account].s.stalk = accountStalk.add(stalk);
 
 
@@ -153,6 +155,4 @@ contract Silo is SiloExit {
 
         emit ClaimPlenty(account, plenty);
     }
-
-
 }

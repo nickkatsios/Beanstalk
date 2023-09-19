@@ -13,17 +13,17 @@ import useSeason from '~/hooks/beanstalk/useSeason';
 import { FC } from '~/types';
 
 const getValue = (season: SeasonalLiquidityQuery['seasons'][number]) =>
-  parseFloat(season.totalLiquidityUSD);
+  parseFloat(season.liquidityUSD);
 const formatValue = (value: number) =>
   `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const statProps = {
   title: 'Liquidity',
   titleTooltip:
-    'The USD value of the tokens in the BEAN:3CRV pool at the end of every Season.',
+    'The USD value of the tokens in the BEAN:3CRV and BEAN:ETH pools at the end of every Season.',
   gap: 0.25,
 };
 const queryConfig = {
-  variables: { season_gt: 6073 },
+  variables: { season_gt: 0 },
   context: { subgraph: 'bean' },
 };
 const lineChartProps: Partial<LineChartProps> = {

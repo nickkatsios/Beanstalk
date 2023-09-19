@@ -10,10 +10,10 @@ export const addresses = {
   // ----------------------------------------
   // Ecosystem Contracts
   // ----------------------------------------
-  BEANSTALK_PRICE: Address.make("0xF2C2b7eabcB353bF6f2128a7f8e1e32Eeb112530"),
+  BEANSTALK_PRICE: Address.make("0xb01CE0008CaD90104651d6A84b6B11e182a9B62A"),
   MATH: Address.make("0x16a903b66403d3de69db50e6d1ad0b07490b740a"),
-  DEPOT: Address.make("0xDEb0f000082fD56C10f449d4f8497682494da84D"),
-  PIPELINE: Address.make("0xb1bE0000bFdcDDc92A8290202830C4Ef689dCeaa"),
+  DEPOT: Address.make("0xDEb0f00071497a5cc9b4A6B96068277e57A82Ae2"),
+  PIPELINE: Address.make("0xb1bE0000C6B3C62749b5F0c92480146452D15423"),
   ROOT: Address.make("0x77700005BEA4DE0A78b956517f099260C2CA9a26"),
 
   // ----------------------------------------
@@ -37,7 +37,7 @@ export const addresses = {
   // Bean Pool LP Tokens
   // ----------------------------------------
   BEAN_CRV3:
-    // "Curve.fi Factory USD Metapool: Bean (BEAN3CRV-f)"
+    // "BEAN:3CRV Curve LP Token (BEAN3CRV-f)"
     // [Implements: ERC20 & Metapool]
     // --------------------------------------------------
     // coins[0] = 0xBEA0003eA948Db32082Fc6F4EC0729D258a0444c (BEAN)
@@ -50,6 +50,11 @@ export const addresses = {
     //    - 3CRV (the 3pool LP Token) = 0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490
     //    - 3pool Contract            = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7
     Address.make("0xc9C32cd16Bf7eFB85Ff14e0c8603cc90F6F2eE49"),
+
+  // ----------------------------------------
+  // Wells Contracts
+  // ----------------------------------------
+  BEANWETH_WELL: Address.make("0xBEA0e11282e2bB5893bEcE110cF199501e872bAd"),
 
   // ----------------------------------------
   // Common ERC-20 Tokens

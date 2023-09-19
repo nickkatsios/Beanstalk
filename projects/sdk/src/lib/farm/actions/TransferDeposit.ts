@@ -5,23 +5,16 @@ export class TransferDeposit extends StepClass<BasicPreparedResult> {
   public name: string = "transferDeposit";
 
   constructor(
-    private _signer: string,
-    private _to: string,
-    private _tokenIn: string,
-    private _season: ethers.BigNumberish,
-    private _amount: ethers.BigNumberish
+    public readonly _signer: string,
+    public readonly _to: string,
+    public readonly _tokenIn: string,
+    public readonly _season: ethers.BigNumberish,
+    public readonly _amount: ethers.BigNumberish
   ) {
     super();
   }
 
   async run(_amountInStep: ethers.BigNumber, context: RunContext) {
-    TransferDeposit.sdk.debug(`[${this.name}.run()]`, {
-      signer: this._signer,
-      to: this._to,
-      tokenIn: this._tokenIn,
-      season: this._season,
-      amount: this._amount
-    });
     return {
       name: this.name,
       amountOut: _amountInStep,

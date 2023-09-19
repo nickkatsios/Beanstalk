@@ -1,5 +1,5 @@
 import { BigNumber, ethers } from "ethers";
-import { BasicPreparedResult, RunContext, Step, StepClass, Workflow } from "src/classes/Workflow";
+import { BasicPreparedResult, RunContext, RunMode, Step, StepClass, Workflow } from "src/classes/Workflow";
 import { CurveMetaPool__factory, CurvePlainPool__factory } from "src/constants/generated";
 import { assert } from "src/utils";
 import { FarmFromMode, FarmToMode } from "../types";
@@ -8,27 +8,22 @@ export class AddLiquidity extends StepClass<BasicPreparedResult> {
   public name: string = "addLiquidity";
 
   constructor(
-    private _pool: string,
-    private _registry: string,
-    private _amounts: readonly [number, number] | readonly [number, number, number],
-    private _fromMode: FarmFromMode = FarmFromMode.INTERNAL_TOLERANT,
-    private _toMode: FarmToMode = FarmToMode.INTERNAL
+    public readonly _pool: string,
+    public readonly _registry: string,
+    public readonly _amounts: readonly [number, number] | readonly [number, number, number],
+    public readonly _fromMode: FarmFromMode = FarmFromMode.INTERNAL_TOLERANT,
+    public readonly _toMode: FarmToMode = FarmToMode.INTERNAL
   ) {
     super();
   }
 
   async run(_amountInStep: ethers.BigNumber, context: RunContext): Promise<Step<BasicPreparedResult>> {
-    AddLiquidity.sdk.debug(`[${this.name}.run()]`, {
-      pool: this._pool,
-      registry: this._registry,
-      amounts: this._amounts,
-      amountInStep: _amountInStep,
-      fromMode: this._fromMode,
-      toMode: this._toMode,
-      context
-    });
+    if (context.runMode === RunMode.EstimateReversed) {
+      throw new Error("Reverse estimation is not yet supported for this action");
+    }
 
     /// [0, 0, 1] => [0, 0, amountIn]
+    /// FIXME: this uses a binary approach instead of a multiplier.
     const amountInStep = this._amounts.map((k) => (k === 1 ? _amountInStep : ethers.BigNumber.from(0)));
 
     /// Get amount out based on the selected pool

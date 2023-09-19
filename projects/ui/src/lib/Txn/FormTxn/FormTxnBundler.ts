@@ -14,6 +14,7 @@ import {
   FormTxnMap,
 } from '~/lib/Txn/FormTxn/types';
 import { FormTxnBundlerPresets as presets } from '~/lib/Txn/FormTxn/presets';
+import { BigNumber } from 'ethers';
 
 type FormTxnFarmStep =
   | MowFarmStep
@@ -126,9 +127,16 @@ export class FormTxnBundler {
   public async bundle(
     operation: FarmStep,
     amountIn: TokenValue,
-    slippage: number
+    slippage: number,
+    gasMultiplier?: number,
+    advancedFarm?: boolean
   ) {
-    const farm = this._sdk.farm.create();
+    let farm: any;
+    if (advancedFarm) {
+      farm = this._sdk.farm.createAdvancedFarm();
+    } else {
+      farm = this._sdk.farm.create();
+    }
 
     Object.entries(this.before).forEach(([step, farmStep]) => {
       const farmInput = farmStep.getFarmInput();
@@ -159,7 +167,16 @@ export class FormTxnBundler {
     const estimate = await farm.estimate(amountIn);
     console.debug('[FormTxnBundler][bundle]: estimate = ', estimate.toString());
 
-    const execute = () => farm.execute(amountIn, { slippage });
+    let gasEstimate: BigNumber
+    let adjustedGas: string
+    if (gasMultiplier) {
+      gasEstimate = await farm.estimateGas(amountIn, { slippage });
+      adjustedGas = Math.round(gasEstimate.toNumber() * gasMultiplier).toString();
+      console.debug('[FormTxnBundler][bundle]: estimateGas = ', gasEstimate.toString());
+      console.debug('[FormTxnBundler][bundle]: adjustedGas = ', adjustedGas);
+    }
+
+    const execute = () => farm.execute(amountIn, { slippage }, gasMultiplier ? { gasLimit: adjustedGas } : undefined);
 
     return {
       estimate,

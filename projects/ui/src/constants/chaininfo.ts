@@ -32,11 +32,18 @@ export const CHAIN_INFO: ChainInfoMap = {
     logoUrl: ethereumLogoUrl,
     nativeCurrency: { name: 'Localhost Ether', symbol: 'locETH', decimals: 18 },
   },
-  [SupportedChainId.CUJO]: {
+  [SupportedChainId.TESTNET]: {
     networkType: NetworkType.L1,
     explorer: 'https://etherscan.io',
-    label: 'Harhat',
+    label: 'Silo V3 Test (Tenderly)',
     logoUrl: ethereumLogoUrl,
-    nativeCurrency: { name: 'Hardhat Ether', symbol: 'hETH', decimals: 18 },
+    nativeCurrency: { name: 'Tenderly Ether', symbol: 'tETH', decimals: 18 },
+  },
+  [SupportedChainId.ANVIL1]: {
+    networkType: NetworkType.L1,
+    explorer: 'https://etherscan.io',
+    label: 'Basin Integration Test',
+    logoUrl: ethereumLogoUrl,
+    nativeCurrency: { name: 'Basin Test Ether', symbol: 'btETH', decimals: 18 },
   },
 };

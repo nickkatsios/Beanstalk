@@ -6,16 +6,16 @@ pragma solidity =0.7.6;
 pragma experimental ABIEncoderV2;
 
 import {SafeMath} from "@openzeppelin/contracts/math/SafeMath.sol";
-import {LibConvertData} from "~/libraries/Convert/LibConvertData.sol";
-import {LibWell} from "~/libraries/Well/LibWell.sol";
+import {LibConvertData} from "contracts/libraries/Convert/LibConvertData.sol";
+import {LibWell} from "contracts/libraries/Well/LibWell.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {C} from "~/C.sol";
-import {Call, IWell} from "@wells/interfaces/IWell.sol";
-import {IBeanstalkWellFunction} from "@wells/interfaces/IBeanstalkWellFunction.sol";
+import {C} from "contracts/C.sol";
+import {Call, IWell} from "contracts/interfaces/basin/IWell.sol";
+import {IBeanstalkWellFunction} from "contracts/interfaces/basin/IBeanstalkWellFunction.sol";
 
 /**
  * @title Well Convert Library
- * @notice Contains Functions to convert from/to Bean:3Crv to/from Beans
+ * @notice Contains Functions to convert from/to Well LP tokens to/from Beans
  * in the direction of the Peg.
  **/
 library LibWellConvert {
@@ -38,8 +38,10 @@ library LibWellConvert {
         IERC20[] memory tokens = IWell(well).tokens();
         uint256[] memory reserves = IWell(well).getReserves();
         Call memory wellFunction = IWell(well).wellFunction();
-        uint256[] memory ratios;
-        (ratios, beanIndex) = LibWell.getRatiosAndBeanIndex(tokens);
+        uint256[] memory ratios; bool success;
+        (ratios, beanIndex, success) = LibWell.getRatiosAndBeanIndex(tokens);
+        // If the USD Oracle oracle call fails, the convert should not be allowed.
+        require(success, "Convert: USD Oracle failed");
 
         uint256 beansAtPeg = IBeanstalkWellFunction(wellFunction.target).calcReserveAtRatioLiquidity(
             reserves,
@@ -47,6 +49,7 @@ library LibWellConvert {
             ratios,
             wellFunction.data
         );
+
         if (beansAtPeg <= reserves[beanIndex]) return (0, beanIndex);
         // SafeMath is unnecessary as above line performs the check
         beans = beansAtPeg - reserves[beanIndex];
@@ -60,14 +63,9 @@ library LibWellConvert {
         IERC20[] memory tokens = IWell(well).tokens();
         uint256[] memory reserves = IWell(well).getReserves();
         Call memory wellFunction = IWell(well).wellFunction();
-        uint beanIndex = LibWell.getBeanIndex(tokens);
-        uint256[] memory ratios;
-        (ratios, beanIndex) = LibWell.getRatiosAndBeanIndex(tokens);
-
-        uint256 lpSupplyNow = IBeanstalkWellFunction(wellFunction.target).calcLpTokenSupply(
-            reserves,
-            wellFunction.data
-        );
+        (uint256[] memory ratios, uint256 beanIndex, bool success) = LibWell.getRatiosAndBeanIndex(tokens);
+        // If the USD Oracle oracle call fails, the convert should not be allowed.
+        require(success, "Convert: USD Oracle failed");
 
         uint256 beansAtPeg = IBeanstalkWellFunction(wellFunction.target).calcReserveAtRatioLiquidity(
             reserves,
@@ -77,6 +75,12 @@ library LibWellConvert {
         );
 
         if (reserves[beanIndex] <= beansAtPeg) return 0;
+
+        uint256 lpSupplyNow = IBeanstalkWellFunction(wellFunction.target).calcLpTokenSupply(
+            reserves,
+            wellFunction.data
+        );
+
         reserves[beanIndex] = beansAtPeg;
         return lpSupplyNow.sub(IBeanstalkWellFunction(wellFunction.target).calcLpTokenSupply(
             reserves,
